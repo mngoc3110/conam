@@ -1,0 +1,987 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <title>Noel 3D: Nhân vật mở quà 🎁🎄</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root{
+      --text:#eaf2ff;
+      --muted:rgba(234,242,255,.78);
+      --glass:rgba(10,18,26,.55);
+      --border:rgba(255,255,255,.14);
+      --xmas-red:#d64545;
+      --xmas-green:#1fb35d;
+      --xmas-gold:#f6d36b;
+      --xmas-ink:#0c1b26;
+    }
+    html,body{height:100%; margin:0; overflow:hidden; background:#02060b; color:var(--text);
+      font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    #app{position:fixed; inset:0}
+    canvas{display:block; width:100%; height:100%}
+
+    .hud{
+      position:fixed; left:12px; top:12px; z-index:5;
+      display:flex; flex-direction:column; gap:10px; max-width:min(560px, 92vw);
+      pointer-events:none;
+    }
+    .chip{
+      padding:9px 12px; border-radius:999px;
+      background:var(--glass); border:1px solid var(--border);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 16px 50px rgba(0,0,0,.45);
+      font-size:13px; color:var(--muted); line-height:1.35;
+      pointer-events:none;
+    }
+    .chip strong{color:var(--text)}
+
+    .topRight{
+      position:fixed; right:12px; top:12px; z-index:6;
+      display:flex; gap:10px; align-items:center;
+    }
+    .btn{
+      appearance:none; border:1px solid var(--border);
+      padding:10px 14px; border-radius:14px;
+      background:rgba(255,255,255,.10);
+      color:var(--text); cursor:pointer; font-weight:900;
+      transition: transform .12s ease, background .12s ease, filter .12s ease;
+      backdrop-filter: blur(10px);
+    }
+    .btn:hover{transform: translateY(-1px); background:rgba(255,255,255,.14)}
+    .btn.primary{
+      border-color: rgba(46, 201, 110, .35);
+      background: linear-gradient(135deg, rgba(46,201,110,.95), rgba(20,140,78,.95));
+    }
+    .btn:disabled{cursor:not-allowed; opacity:.65; transform:none; filter:grayscale(.2)}
+
+    /* Nút chỉ hiện trong TREE mode */
+    .btn.onlyTree{ display:none; }
+    .btn.onlyTree.show{ display:inline-flex; }
+
+    .centerToast{
+      position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
+      z-index:9; padding:10px 12px; border-radius:999px;
+      background: rgba(10,18,26,.55); border:1px solid rgba(255,255,255,.14);
+      backdrop-filter: blur(10px);
+      color: rgba(234,242,255,.92); font-size:13px;
+      pointer-events:none; display:none;
+      box-shadow: 0 16px 50px rgba(0,0,0,.45);
+    }
+
+    /* LETTER */
+    .overlay{
+      position:fixed; inset:0; z-index:20;
+      display:none; align-items:center; justify-content:center;
+      padding:16px;
+      background:
+        radial-gradient(1200px 600px at 50% 0%, rgba(255,255,255,.08), transparent 60%),
+        rgba(0,0,0,.72);
+    }
+    .letterWrap{
+      width:min(860px, 96vw);
+      border-radius:24px; overflow:hidden;
+      border:1px solid rgba(255,255,255,.18);
+      box-shadow: 0 30px 90px rgba(0,0,0,.65);
+      background:
+        linear-gradient(135deg, rgba(214,69,69,.18), rgba(31,179,93,.12)),
+        rgba(255,255,255,.06);
+      backdrop-filter: blur(12px);
+      transform-origin: 50% 70%;
+      animation: pop .35s ease-out;
+      position:relative;
+    }
+    .letterWrap::before{
+      content:"";
+      position:absolute; inset:-2px;
+      background:
+        radial-gradient(120px 120px at 18% 18%, rgba(246,211,107,.20), transparent 60%),
+        radial-gradient(140px 140px at 82% 24%, rgba(31,179,93,.18), transparent 60%),
+        radial-gradient(160px 160px at 70% 86%, rgba(214,69,69,.16), transparent 60%);
+      opacity:.55; pointer-events:none;
+    }
+    @keyframes pop{ from{ transform: scale(.92); opacity:0 } to{ transform: scale(1); opacity:1 } }
+    .letterBar{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px; padding:12px 14px;
+      background:
+        linear-gradient(90deg, rgba(214,69,69,.25), rgba(31,179,93,.22)),
+        rgba(5,10,14,.55);
+      color: rgba(234,242,255,.92);
+      position:relative;
+    }
+    .letterBar > div{font-weight:1000; letter-spacing:.2px}
+    .paper{
+      background:
+        radial-gradient(900px 420px at 50% 0%, rgba(246,211,107,.18), transparent 62%),
+        rgba(255,255,255,.94);
+      color: var(--xmas-ink);
+      padding: 24px 24px 18px;
+      position:relative;
+      overflow:hidden;
+    }
+    .paper h2{margin:0 0 10px; font-size:24px}
+    .paper p{margin:0 0 10px; line-height:1.65; color:#173245}
+    .cta{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px}
+    .sign{margin-top:14px; font-weight:1000}
+    .note{font-size:13px; color:rgba(12,27,38,.68)}
+
+    /* Mobile controls */
+    .mobilePad{
+      position:fixed; left:12px; bottom:12px; z-index:10;
+      display:none; gap:10px; align-items:flex-end;
+      user-select:none; -webkit-user-select:none; touch-action:none;
+    }
+    .dpad{
+      display:grid;
+      grid-template-columns: 54px 54px 54px;
+      grid-template-rows: 54px 54px 54px;
+      gap:8px; padding:10px;
+      border-radius:18px;
+      background: rgba(10,18,26,.55);
+      border:1px solid rgba(255,255,255,.14);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 16px 50px rgba(0,0,0,.45);
+    }
+    .padBtn{
+      width:54px; height:54px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.10);
+      color: var(--text);
+      font-weight:1000; font-size:18px;
+      display:grid; place-items:center;
+      cursor:pointer;
+      transition: transform .06s ease, background .08s ease;
+    }
+    .padBtn:active{ transform: scale(.98); background: rgba(255,255,255,.16); }
+    .padBtn.empty{
+      background: transparent;
+      border:1px dashed rgba(255,255,255,.12);
+      color: rgba(255,255,255,.35);
+      cursor:default;
+    }
+    .mobileActions{display:flex; flex-direction:column; gap:10px}
+
+    .touchHint{
+      position:fixed;
+      left:50%;
+      bottom:14px;
+      transform:translateX(-50%);
+      z-index:8;
+      padding:8px 12px;
+      border-radius:999px;
+      background: rgba(10,18,26,.45);
+      border:1px solid rgba(255,255,255,.12);
+      color: rgba(234,242,255,.78);
+      backdrop-filter: blur(10px);
+      font-size:12px;
+      pointer-events:none;
+      display:none;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div class="hud">
+    <div class="chip">
+      <strong>🎮 Desktop:</strong> A/D quay, W/S đi. Nhấn <strong>E</strong> để mở quà.
+      <span style="opacity:.9">— Giữ chuột trái kéo lên/xuống để ngước/cúi.</span>
+      <br/>
+      <strong>📱 Mobile:</strong> Kéo 1 ngón ở <strong>nửa dưới màn hình</strong> để di chuyển (giống joystick).
+    </div>
+    <div class="chip" id="statusChip">Trạng thái: hãy đi lại gần hộp quà…</div>
+  </div>
+
+  <div class="topRight">
+    <button class="btn" id="btnReset">Reset</button>
+
+    <!-- ✅ NÚT MỚI: chỉ hiện khi vào TREE mode -->
+    <button class="btn onlyTree" id="btnGoOtherFile" style="color:red"><a href="./index ver1.1.html">Nhấn vào đây➜</a></button>
+ 
+    <button class="btn primary" id="btnOpenGift" disabled>Mở quà (E)</button>
+  </div>
+
+  <div class="centerToast" id="toast">Hãy đi lại gần hộp quà để mở 🎁</div>
+  <div class="touchHint" id="touchHint">Kéo để đi • Thả tay để dừng</div>
+
+  <!-- Mobile controls -->
+  <div class="mobilePad" id="mobilePad">
+    <div class="dpad">
+      <div class="padBtn empty"></div>
+      <div class="padBtn" data-dir="up">↑</div>
+      <div class="padBtn empty"></div>
+
+      <div class="padBtn" data-dir="left">⟲</div>
+      <div class="padBtn empty">•</div>
+      <div class="padBtn" data-dir="right">⟳</div>
+
+      <div class="padBtn empty"></div>
+      <div class="padBtn" data-dir="down">↓</div>
+      <div class="padBtn empty"></div>
+    </div>
+    <div class="mobileActions">
+      <button class="btn primary" id="btnOpenGiftMobile" disabled>Mở quà</button>
+      <button class="btn" id="btnBackGift" style="display:none;">Về hộp quà</button>
+
+      <button class="btn" id="btnLookUp">👁↑ Nhìn lên</button>
+      <button class="btn" id="btnLookDown">👁↓ Nhìn xuống</button>
+    </div>
+  </div>
+
+  <!-- Letter -->
+  <div class="overlay" id="overlay">
+    <div class="letterWrap">
+      <div class="letterBar">
+        <div>💌 Lá thư Giáng Sinh</div>
+        <button class="btn" id="btnCloseLetter">Đóng</button>
+      </div>
+      <div class="paper">
+        <h2>Gửi bạn,</h2>
+        <p>
+          Em cảm ơn cô đã cho em giúp em hoàn thành đợt kiến tập 1 một cách suôn sẻ. Em chúc cô một giáng sinh vui vẻ, em hy vọng sẽ được gặp lại vô vào kỳ thực tập 2 sắp tới ạ.
+        </p>
+        <p>Bấm nút bên dưới để bước vào không gian 3D có cây thông và tuyết rơi ❄️</p>
+        <div class="cta">
+          <button class="btn primary" id="btnEnterTree">Đi vào không gian 3D 🎄</button>
+          <button class="btn" id="btnBackToGift">Quay lại hộp quà</button>
+        </div>
+        <div class="sign">— Merry Christmas 🎁🎄</div>
+   
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+
+    // ✅ đổi tên file bạn muốn chuyển tới ở đây
+    const OTHER_FILE = "scene2.html";
+
+    // ---------- DOM ----------
+    const app = document.getElementById("app");
+    const overlay = document.getElementById("overlay");
+    const btnReset = document.getElementById("btnReset");
+    const btnOpenGift = document.getElementById("btnOpenGift");
+    const btnOpenGiftMobile = document.getElementById("btnOpenGiftMobile");
+    const btnBackGift = document.getElementById("btnBackGift");
+
+    const btnGoOtherFile = document.getElementById("btnGoOtherFile"); // ✅ new
+
+    const btnCloseLetter = document.getElementById("btnCloseLetter");
+    const btnEnterTree = document.getElementById("btnEnterTree");
+    const btnBackToGift = document.getElementById("btnBackToGift");
+
+    const btnLookUp = document.getElementById("btnLookUp");
+    const btnLookDown = document.getElementById("btnLookDown");
+
+    const statusChip = document.getElementById("statusChip");
+    const toast = document.getElementById("toast");
+    const mobilePad = document.getElementById("mobilePad");
+    const touchHint = document.getElementById("touchHint");
+
+    const isTouch = (('ontouchstart' in window) || navigator.maxTouchPoints > 0);
+    if (isTouch) {
+      mobilePad.style.display = "flex";
+      touchHint.style.display = "block";
+    }
+
+    // ✅ click đi file khác
+    btnGoOtherFile.addEventListener("click", ()=>{
+      window.location.href = OTHER_FILE;
+    });
+
+    // ---------- Three ----------
+    const renderer = new THREE.WebGLRenderer({ antialias:true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.shadowMap.enabled = true;
+    app.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x02060b, 14, 70);
+
+    const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 250);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+
+    const key = new THREE.DirectionalLight(0xffffff, 1.05);
+    key.position.set(10, 16, 8);
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    scene.add(key);
+
+    const rim = new THREE.PointLight(0x66ccff, 1.05, 100);
+    rim.position.set(-12, 8, -12);
+    scene.add(rim);
+
+    const ground = new THREE.Mesh(
+      new THREE.CircleGeometry(70, 80),
+      new THREE.MeshStandardMaterial({ color: 0x071521, roughness: 0.96 })
+    );
+    ground.rotation.x = -Math.PI/2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // ---------- State ----------
+    const MODE = { GIFT:"gift", TREE:"tree" };
+    let mode = MODE.GIFT;
+
+    // ---------- Player ----------
+    const player = new THREE.Group();
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x4dd2ff, roughness: 0.55, metalness: 0.05 });
+    const headMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 });
+
+    const capsule = new THREE.Mesh(new THREE.CapsuleGeometry(0.6, 1.2, 8, 16), bodyMat);
+    capsule.castShadow = true;
+    capsule.position.y = 1.2;
+    player.add(capsule);
+
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.45, 18, 18), headMat);
+    head.castShadow = true;
+    head.position.set(0, 2.35, 0);
+    player.add(head);
+
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.38, 14), new THREE.MeshStandardMaterial({ color: 0xffc14d }));
+    nose.rotation.x = Math.PI/2;
+    nose.position.set(0, 2.25, 0.55);
+    nose.castShadow = true;
+    player.add(nose);
+
+    player.position.set(-10, 0, 7);
+    scene.add(player);
+
+    // ---------- Gift ----------
+    const giftGroup = new THREE.Group();
+    let giftLid, giftBow;
+    const giftPos = new THREE.Vector3(7, 0, 0);
+
+    function buildGift(){
+      const bodyMat = new THREE.MeshStandardMaterial({ color: 0xd64545, roughness: 0.55, metalness: 0.05 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(4.2, 3.4, 4.2), bodyMat);
+      body.position.y = 1.7;
+      body.castShadow = true;
+      body.receiveShadow = true;
+      giftGroup.add(body);
+
+      const ribbonMat = new THREE.MeshStandardMaterial({ color: 0xf6d36b, roughness: 0.35, metalness: 0.15 });
+      const r1 = new THREE.Mesh(new THREE.BoxGeometry(0.7, 3.6, 4.3), ribbonMat);
+      r1.position.set(0, 1.7, 0); r1.castShadow = true;
+      const r2 = new THREE.Mesh(new THREE.BoxGeometry(4.3, 3.6, 0.7), ribbonMat);
+      r2.position.set(0, 1.7, 0); r2.castShadow = true;
+      giftGroup.add(r1, r2);
+
+      const lidMat = new THREE.MeshStandardMaterial({ color: 0xe75c5c, roughness: 0.52, metalness: 0.05 });
+      giftLid = new THREE.Mesh(new THREE.BoxGeometry(4.5, 1.2, 4.5), lidMat);
+      giftLid.position.set(0, 3.6, 0);
+      giftLid.castShadow = true;
+      giftGroup.add(giftLid);
+
+      const lr1 = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.25, 4.55), ribbonMat);
+      lr1.position.set(0, 3.6, 0); lr1.castShadow = true;
+      const lr2 = new THREE.Mesh(new THREE.BoxGeometry(4.55, 1.25, 0.7), ribbonMat);
+      lr2.position.set(0, 3.6, 0); lr2.castShadow = true;
+      giftGroup.add(lr1, lr2);
+
+      giftBow = new THREE.Group();
+      const loopGeo = new THREE.TorusGeometry(0.55, 0.18, 12, 28);
+      const loop1 = new THREE.Mesh(loopGeo, ribbonMat);
+      loop1.rotation.z = Math.PI/2; loop1.rotation.y = 0.6; loop1.position.set(-0.55, 4.25, 0);
+      const loop2 = new THREE.Mesh(loopGeo, ribbonMat);
+      loop2.rotation.z = Math.PI/2; loop2.rotation.y = -0.6; loop2.position.set(0.55, 4.25, 0);
+      const knot = new THREE.Mesh(new THREE.SphereGeometry(0.28, 18, 18), ribbonMat);
+      knot.position.set(0, 4.25, 0);
+      [loop1, loop2, knot].forEach(m=>m.castShadow = true);
+      giftBow.add(loop1, loop2, knot);
+      giftGroup.add(giftBow);
+
+      giftGroup.position.copy(giftPos);
+      scene.add(giftGroup);
+    }
+    buildGift();
+
+    // ---------- Tree ----------
+    const treeGroup = new THREE.Group();
+    let ornaments = [];
+    function buildTree(){
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.45, 0.65, 2.4, 18),
+        new THREE.MeshStandardMaterial({ color: 0x7a4a2b, roughness: 0.9 })
+      );
+      trunk.position.y = 1.2; trunk.castShadow = true;
+      treeGroup.add(trunk);
+
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x1fb35d, roughness: 0.75 });
+      const levels = [
+        { r: 3.6, h: 3.2, y: 2.8 },
+        { r: 3.0, h: 2.9, y: 3.9 },
+        { r: 2.4, h: 2.6, y: 4.9 },
+        { r: 1.8, h: 2.2, y: 5.7 },
+      ];
+      levels.forEach(l=>{
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(l.r, l.h, 28), leafMat);
+        cone.position.y = l.y; cone.castShadow = true;
+        treeGroup.add(cone);
+      });
+
+      const star = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.45, 0),
+        new THREE.MeshStandardMaterial({ color: 0xf6d36b, emissive: 0xf6d36b, emissiveIntensity: 0.75, roughness: 0.2 })
+      );
+      star.position.y = 7.1; star.castShadow = true;
+      treeGroup.add(star);
+
+      ornaments = [];
+      const orbGeo = new THREE.SphereGeometry(0.22, 20, 20);
+      const palette = [0xff4d4d, 0x4dd2ff, 0xffc14d, 0xb84dff, 0x60ff9c];
+      for(let i=0;i<34;i++){
+        const mat = new THREE.MeshStandardMaterial({ color: palette[i % palette.length], roughness: 0.32, metalness: 0.25 });
+        const orb = new THREE.Mesh(orbGeo, mat);
+        const angle = Math.random()*Math.PI*2;
+        const radius = 0.9 + Math.random()*2.6;
+        const y = 2.3 + Math.random()*4.3;
+        orb.position.set(Math.cos(angle)*radius, y, Math.sin(angle)*radius);
+        orb.castShadow = true;
+        orb.userData.pulse = 0;
+        ornaments.push(orb);
+        treeGroup.add(orb);
+      }
+
+      const base = new THREE.Mesh(
+        new THREE.TorusGeometry(3.5, 0.08, 10, 60),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.65, metalness: 0.1 })
+      );
+      base.rotation.x = Math.PI/2; base.position.y = 0.08;
+      treeGroup.add(base);
+
+      treeGroup.position.set(0, 0, -20);
+      treeGroup.visible = false;
+      scene.add(treeGroup);
+    }
+    buildTree();
+
+    // ---------- Snow ----------
+    let snowPoints;
+    function buildSnow(){
+      const count = 3000;
+      const geo = new THREE.BufferGeometry();
+      const pos = new Float32Array(count*3);
+      const spd = new Float32Array(count);
+      const spread = 30;
+      for(let i=0;i<count;i++){
+        pos[i*3+0] = (Math.random()-0.5) * spread * 2;
+        pos[i*3+1] = 3 + Math.random()*26;
+        pos[i*3+2] = (Math.random()-0.5) * spread * 2 - 20;
+        spd[i] = 0.6 + Math.random()*2.0;
+      }
+      geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+      geo.setAttribute("aSpeed", new THREE.BufferAttribute(spd, 1));
+      const mat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.06, transparent:true, opacity:0.92 });
+      snowPoints = new THREE.Points(geo, mat);
+      snowPoints.visible = false;
+      scene.add(snowPoints);
+    }
+    buildSnow();
+
+    // ---------- Text ring ----------
+    function makeTextTexture(text){
+      const c = document.createElement("canvas");
+      c.width = 2048; c.height = 256; // ✅ rộng hơn để không cắt chữ
+      const g = c.getContext("2d");
+
+      g.font = "900 96px system-ui";
+      g.textAlign = "left";          // ✅ canh trái
+      g.textBaseline = "middle";
+
+      const pad = 120;              // ✅ chừa mép trái
+      const x = pad;
+      const y = c.height/2;
+
+      g.lineWidth = 18;
+      g.strokeStyle = "rgba(0,0,0,.55)";
+      g.strokeText(text, x, y);
+
+      const grad = g.createLinearGradient(180,0, c.width-180,0);
+      grad.addColorStop(0,   "rgba(214,69,69,1)");
+      grad.addColorStop(0.5, "rgba(246,211,107,1)");
+      grad.addColorStop(1,   "rgba(31,179,93,1)");
+      g.fillStyle = grad;
+      g.fillText(text, x, y);
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    const textRing = new THREE.Group();
+    textRing.visible = false;
+    scene.add(textRing);
+
+    function buildTextRing(){
+      const tex = makeTextTexture("CHÚC MỪNG GIÁNG SINH 🎄");
+      const mat = new THREE.MeshStandardMaterial({
+        map: tex,
+        transparent: true,
+        side: THREE.DoubleSide, // ✅ nhìn 2 mặt
+        roughness: 0.55,
+        metalness: 0.05,
+        emissive: new THREE.Color(0xffffff),
+        emissiveIntensity: 0.25
+      });
+
+      const planeGeo = new THREE.PlaneGeometry(12.5, 4.2);
+      const radius = 42;
+      const y = 7.2;
+      const count = 20;
+
+      for(let i=0;i<count;i++){
+        const a = (i / count) * Math.PI * 2;
+        const p = new THREE.Mesh(planeGeo, mat);
+        p.position.set(Math.cos(a)*radius, y, Math.sin(a)*radius - 20);
+        p.lookAt(0, y, -20);
+        textRing.add(p);
+      }
+    }
+    buildTextRing();
+
+    // ---------- Input ----------
+    const keys = { w:false, a:false, s:false, d:false };
+    const mobileDir = { up:false, down:false, left:false, right:false };
+
+    const touchJoy = { active:false, pointerId:null, startX:0, startY:0, dx:0, dy:0, strength:0, angle:0 };
+
+    function onKey(e, down){
+      const k = e.key.toLowerCase();
+      if(k in keys){ keys[k] = down; }
+      if(down && k === "e") tryOpenGift();
+    }
+    addEventListener("keydown", (e)=>onKey(e,true));
+    addEventListener("keyup",   (e)=>onKey(e,false));
+
+    document.querySelectorAll(".padBtn[data-dir]").forEach(btn=>{
+      const dir = btn.dataset.dir;
+      const start = (ev)=>{ ev.preventDefault(); mobileDir[dir] = true; };
+      const end   = (ev)=>{ ev.preventDefault(); mobileDir[dir] = false; };
+      btn.addEventListener("pointerdown", start);
+      btn.addEventListener("pointerup", end);
+      btn.addEventListener("pointercancel", end);
+      btn.addEventListener("pointerleave", end);
+    });
+
+    const JOY_DEADZONE = 10;
+    const JOY_MAX = 80;
+
+    function isInBottomHalf(clientY){ return clientY > innerHeight * 0.52; }
+
+    renderer.domElement.addEventListener("pointerdown", (e)=>{
+      if(!isTouch) return;
+      if (overlay.style.display === "flex") return;
+      if (!isInBottomHalf(e.clientY)) return;
+
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (el && (el.closest(".mobilePad") || el.closest(".topRight"))) return;
+
+      touchJoy.active = true;
+      touchJoy.pointerId = e.pointerId;
+      touchJoy.startX = e.clientX;
+      touchJoy.startY = e.clientY;
+      touchJoy.dx = 0; touchJoy.dy = 0;
+      touchJoy.strength = 0;
+      touchJoy.angle = 0;
+
+      touchHint.textContent = "Kéo để đi • Thả tay để dừng";
+      touchHint.style.display = "block";
+      renderer.domElement.setPointerCapture(e.pointerId);
+    });
+
+    renderer.domElement.addEventListener("pointermove", (e)=>{
+      if(!isTouch) return;
+      if(!touchJoy.active) return;
+      if(e.pointerId !== touchJoy.pointerId) return;
+
+      touchJoy.dx = e.clientX - touchJoy.startX;
+      touchJoy.dy = e.clientY - touchJoy.startY;
+
+      const dist = Math.hypot(touchJoy.dx, touchJoy.dy);
+      if(dist < JOY_DEADZONE){
+        touchJoy.strength = 0;
+        return;
+      }
+      const clamped = Math.min(JOY_MAX, dist);
+      touchJoy.strength = clamped / JOY_MAX;
+      touchJoy.angle = Math.atan2(touchJoy.dy, touchJoy.dx);
+    });
+
+    function endTouchJoy(){
+      touchJoy.active = false;
+      touchJoy.pointerId = null;
+      touchJoy.dx = 0; touchJoy.dy = 0;
+      touchJoy.strength = 0;
+      touchHint.textContent = "Kéo 1 ngón ở nửa dưới để di chuyển";
+      touchHint.style.display = isTouch ? "block" : "none";
+    }
+
+    renderer.domElement.addEventListener("pointerup", (e)=>{
+      if(!isTouch) return;
+      if(touchJoy.active && e.pointerId === touchJoy.pointerId) endTouchJoy();
+    });
+    renderer.domElement.addEventListener("pointercancel", (e)=>{
+      if(!isTouch) return;
+      if(touchJoy.active && e.pointerId === touchJoy.pointerId) endTouchJoy();
+    });
+
+    // Click ornaments in TREE mode
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    renderer.domElement.addEventListener("pointerdown", (e)=>{
+      if(overlay.style.display === "flex") return;
+      if(mode !== MODE.TREE) return;
+      if(isTouch && touchJoy.active && isInBottomHalf(e.clientY)) return;
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
+
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObjects(ornaments, true);
+      if(!hits.length) return;
+
+      const obj = hits[0].object;
+      const colors = [0xff4d4d, 0x4dd2ff, 0xffc14d, 0xb84dff, 0x60ff9c, 0xffffff];
+      const cur = obj.material.color.getHex();
+      const idx = colors.indexOf(cur);
+      const next = colors[(idx + 1 + colors.length) % colors.length];
+      obj.material.color.setHex(next);
+      obj.userData.pulse = 1.0;
+    });
+
+    // ---------- Gift open gating ----------
+    const OPEN_DISTANCE = 3.0;
+    let opened = false;
+    let opening = false;
+    let openT = 0;
+
+    function distanceToGift(){
+      const p = new THREE.Vector3();
+      player.getWorldPosition(p);
+      return p.distanceTo(giftGroup.position);
+    }
+
+    function showToast(msg){
+      toast.textContent = msg;
+      toast.style.display = "block";
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(()=>toast.style.display="none", 900);
+    }
+
+    function updateOpenButton(){
+      const near = (mode === MODE.GIFT) && (distanceToGift() <= OPEN_DISTANCE) && (!opened) && (!opening);
+      btnOpenGift.disabled = !near;
+      btnOpenGiftMobile.disabled = !near;
+      statusChip.textContent =
+        (mode === MODE.GIFT)
+          ? (near ? "Trạng thái: bạn đã đủ gần — nhấn E / Mở quà 🎁" : "Trạng thái: hãy đi lại gần hộp quà để mở")
+          : "Trạng thái: đang ở không gian cây thông 🎄 (click quả châu để đổi màu)";
+    }
+
+    function tryOpenGift(){
+      if(mode !== MODE.GIFT) return;
+      if(opened || opening) return;
+      const dist = distanceToGift();
+      if(dist > OPEN_DISTANCE){
+        showToast("Chưa đủ gần! Hãy đi sát hộp quà 🎁");
+        return;
+      }
+      opening = true;
+      openT = 0;
+    }
+
+    btnOpenGift.addEventListener("click", tryOpenGift);
+    btnOpenGiftMobile.addEventListener("click", tryOpenGift);
+
+    // ---------- Letter ----------
+    function showLetter(){ overlay.style.display = "flex"; }
+    function closeLetter(){ overlay.style.display = "none"; }
+    btnCloseLetter.addEventListener("click", closeLetter);
+
+    btnEnterTree.addEventListener("click", ()=>{
+      closeLetter();
+      player.position.set(0, 0, -10);
+      speed = 0;
+      setMode(MODE.TREE);
+    });
+
+    btnBackToGift.addEventListener("click", ()=>{
+      closeLetter();
+      setMode(MODE.GIFT);
+    });
+
+    btnBackGift.addEventListener("click", ()=>{
+      player.position.set(-10, 0, 7);
+      speed = 0;
+      setMode(MODE.GIFT);
+    });
+
+    // ---------- Mode switching ----------
+    function setMode(next){
+      mode = next;
+
+      if(mode === MODE.GIFT){
+        treeGroup.visible = false;
+        snowPoints.visible = false;
+        textRing.visible = false;
+        giftGroup.visible = true;
+        btnBackGift.style.display = "none";
+        btnGoOtherFile.classList.remove("show"); // ✅ hide
+      } else {
+        giftGroup.visible = false;
+        treeGroup.visible = true;
+        snowPoints.visible = true;
+        textRing.visible = true;
+        btnBackGift.style.display = isTouch ? "inline-block" : "none";
+        btnGoOtherFile.classList.add("show");   // ✅ show
+      }
+      updateOpenButton();
+    }
+
+    // ---------- Reset ----------
+    function resetAll(){
+      opened = false;
+      opening = false;
+      openT = 0;
+      closeLetter();
+
+      player.position.set(-10, 0, 7);
+      player.rotation.set(0,0,0);
+      speed = 0;
+      camPitch = 0;
+
+      endTouchJoy();
+
+      giftLid.position.set(0, 3.6, 0);
+      giftLid.rotation.set(0,0,0);
+      giftBow.position.set(0,0,0);
+      giftBow.rotation.set(0,0,0);
+
+      giftGroup.position.copy(giftPos);
+      setMode(MODE.GIFT);
+    }
+    btnReset.addEventListener("click", resetAll);
+
+    // ---------- Movement (tank controls) ----------
+    let speed = 0;
+    const ACC = 14.5;
+    const MAX_SPEED = 6.5;
+    const MAX_BACK = 4.6;
+    const BRAKE = 18.0;
+    const TURN_SPEED = 2.7;
+
+    function updatePlayer(dt){
+      let joyForward = 0;
+      let joyTurn = 0;
+
+      if(isTouch && touchJoy.active && touchJoy.strength > 0){
+        const dx = touchJoy.dx;
+        const dy = touchJoy.dy;
+        const nx = THREE.MathUtils.clamp(dx / JOY_MAX, -1, 1);
+        const ny = THREE.MathUtils.clamp(dy / JOY_MAX, -1, 1);
+        joyForward = -ny;
+        joyTurn = nx;
+      }
+
+      const forwardInput =
+        (keys.w ? 1 : 0) + (mobileDir.up ? 1 : 0) -
+        (keys.s ? 1 : 0) - (mobileDir.down ? 1 : 0) +
+        joyForward;
+
+      const turnInput =
+        (keys.d ? 1 : 0) + (mobileDir.right ? 1 : 0) -
+        (keys.a ? 1 : 0) - (mobileDir.left ? 1 : 0) +
+        joyTurn;
+
+      if(Math.abs(turnInput) > 0.02){
+        player.rotation.y -= turnInput * TURN_SPEED * dt;
+      }
+
+      if(Math.abs(forwardInput) > 0.02){
+        speed += forwardInput * ACC * dt;
+      }else{
+        if(speed > 0) speed = Math.max(0, speed - BRAKE * dt);
+        if(speed < 0) speed = Math.min(0, speed + BRAKE * dt);
+      }
+
+      speed = THREE.MathUtils.clamp(speed, -MAX_BACK, MAX_SPEED);
+
+      const forwardDir = new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0), player.rotation.y);
+      player.position.addScaledVector(forwardDir, speed * dt);
+      player.position.y = 0;
+
+      player.position.x = THREE.MathUtils.clamp(player.position.x, -30, 30);
+      player.position.z = THREE.MathUtils.clamp(player.position.z, -50, 25);
+    }
+
+    // ---------- Camera pitch (look up/down) ----------
+    let camPitch = 0;
+    const PITCH_MIN = -0.55;
+    const PITCH_MAX =  0.55;
+    const PITCH_SPEED = 0.0042;
+
+    let draggingLook = false;
+    let lastPointerY = 0;
+    const lookDir = { up:false, down:false };
+
+    renderer.domElement.addEventListener("pointerdown", (e)=>{
+      if (overlay.style.display === "flex") return;
+      if(isTouch) return;
+      draggingLook = true;
+      lastPointerY = e.clientY;
+    });
+    addEventListener("pointerup", ()=> draggingLook = false);
+    addEventListener("pointercancel", ()=> draggingLook = false);
+    addEventListener("pointermove", (e)=>{
+      if(!draggingLook) return;
+      if (overlay.style.display === "flex") return;
+      const dy = e.clientY - lastPointerY;
+      lastPointerY = e.clientY;
+      camPitch = THREE.MathUtils.clamp(camPitch - dy * PITCH_SPEED, PITCH_MIN, PITCH_MAX);
+    });
+
+    function bindHold(btn, onDown, onUp){
+      if(!btn) return;
+      btn.addEventListener("pointerdown", (e)=>{ e.preventDefault(); onDown(); });
+      btn.addEventListener("pointerup", (e)=>{ e.preventDefault(); onUp(); });
+      btn.addEventListener("pointercancel", (e)=>{ e.preventDefault(); onUp(); });
+      btn.addEventListener("pointerleave", (e)=>{ e.preventDefault(); onUp(); });
+    }
+    bindHold(btnLookUp,   ()=>lookDir.up=true,   ()=>lookDir.up=false);
+    bindHold(btnLookDown, ()=>lookDir.down=true, ()=>lookDir.down=false);
+
+    // ---------- Camera follow ----------
+    const camPos = new THREE.Vector3();
+    function updateCamera(dt){
+      const offset = new THREE.Vector3(0, 5.2, 9.2);
+      offset.applyAxisAngle(new THREE.Vector3(0,1,0), player.rotation.y);
+      const desired = player.position.clone().add(offset);
+
+      const s = 1 - Math.pow(0.001, dt * 60);
+      camPos.lerp(desired, s);
+
+      camera.position.copy(camPos);
+
+      if(lookDir.up)   camPitch = THREE.MathUtils.clamp(camPitch + 1.6 * dt, PITCH_MIN, PITCH_MAX);
+      if(lookDir.down) camPitch = THREE.MathUtils.clamp(camPitch - 1.6 * dt, PITCH_MIN, PITCH_MAX);
+
+      const baseTargetY = player.position.y + 2.2;
+      const targetY = baseTargetY + Math.tan(camPitch) * 6.0;
+      camera.lookAt(player.position.x, targetY, player.position.z);
+    }
+
+    // ---------- Gift opening animation ----------
+    function easeOutCubic(x){ return 1 - Math.pow(1 - x, 3); }
+    function updateGiftOpen(dt){
+      if(!opening) return;
+      openT = Math.min(1, openT + dt * 1.25);
+      const k = easeOutCubic(openT);
+
+      const hingeZ = -2.2;
+      giftLid.position.z = hingeZ * k;
+      giftLid.rotation.x = -Math.PI * 0.95 * k;
+      giftLid.position.y = 3.6 + 0.6*k;
+
+      giftBow.position.z = hingeZ * k;
+      giftBow.rotation.x = -Math.PI * 0.95 * k;
+
+      if(openT >= 1){
+        opening = false;
+        opened = true;
+        setTimeout(()=>showLetter(), 220);
+      }
+    }
+
+    // ---------- Snow update ----------
+    function updateSnow(dt){
+      if(!snowPoints || !snowPoints.visible) return;
+      const geo = snowPoints.geometry;
+      const pos = geo.attributes.position;
+      const spd = geo.attributes.aSpeed;
+      const fall = 0.9 * dt * 60;
+
+      for(let i=0;i<pos.count;i++){
+        let x = pos.getX(i);
+        let y = pos.getY(i);
+        let z = pos.getZ(i);
+
+        y -= spd.getX(i) * 0.03 * fall;
+        x += Math.sin(i * 0.13 + performance.now()*0.001) * 0.002;
+        z += Math.cos(i * 0.11 + performance.now()*0.001) * 0.002;
+
+        if(y < 0.4){
+          y = 26 + Math.random()*6;
+          x = (Math.random()-0.5) * 60;
+          z = (Math.random()-0.5) * 60 - 20;
+        }
+        pos.setXYZ(i, x, y, z);
+      }
+      pos.needsUpdate = true;
+    }
+
+    function updateOrnaments(){
+      ornaments.forEach(o=>{
+        if(o.userData.pulse){
+          o.userData.pulse *= 0.88;
+          const s = 1 + o.userData.pulse * 0.22;
+          o.scale.set(s,s,s);
+          if(o.userData.pulse < 0.02){
+            o.userData.pulse = 0;
+            o.scale.set(1,1,1);
+          }
+        }
+      });
+    }
+
+    // ---------- Start ----------
+    function initCamera(){
+      camPos.copy(player.position.clone().add(new THREE.Vector3(0, 5.2, 9.2)));
+      camera.position.copy(camPos);
+      camera.lookAt(player.position.x, 2.2, player.position.z);
+    }
+    initCamera();
+    setMode(MODE.GIFT);
+
+    // ---------- Loop ----------
+    const clock = new THREE.Clock();
+    function animate(){
+      requestAnimationFrame(animate);
+      const dt = Math.min(0.05, clock.getDelta());
+
+      updatePlayer(dt);
+      updateCamera(dt);
+      updateGiftOpen(dt);
+      updateSnow(dt);
+      updateOrnaments();
+
+      if(mode === MODE.TREE){
+        treeGroup.rotation.y += 0.15 * dt;
+        textRing.rotation.y += 0.22 * dt;
+      }
+
+      updateOpenButton();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // ---------- Resize ----------
+    addEventListener("resize", ()=>{
+      camera.aspect = innerWidth/innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    overlay.addEventListener("pointerdown", (e)=>{
+      if(e.target === overlay) closeLetter();
+    });
+  </script>
+</body>
+</html>
